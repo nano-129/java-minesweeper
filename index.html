@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Neon Mine Sweeper</title>
+    <style>
+        body { background-color: #141414; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        .menu { margin: 20px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 5px; }
+        button:hover { background: #444; }
+        #board { display: grid; background-color: #000; border: 2px solid #505050; padding: 2px; }
+        .cell {
+            width: 40px; height: 40px; border: 1px solid #505050;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 18px; cursor: pointer; user-select: none;
+            background-color: #141414; color: #00e1e1;
+        }
+        .cell.revealed { background-color: #2d2d2d; border: 1px solid #333; }
+        .cell.mine { background-color: red !important; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Minesweeper</h1>
+    <div class="menu">
+        <button onclick="startGame(9, 10)">初級</button>
+        <button onclick="startGame(16, 40)">中級</button>
+        <button onclick="startGame(16, 99)">上級</button>
+    </div>
+    <div id="board"></div>
+
+    <script>
+        let board = [];
+        let size, mines, gameOver;
+
+        function startGame(s, m) {
+            size = s; mines = m; gameOver = false;
+            const boardElement = document.getElementById('board');
+            boardElement.style.gridTemplateColumns = `repeat(${size}, 40px)`;
+            boardElement.innerHTML = '';
+            
+            // ボード初期化 (JavaのBoard/Cellクラス相当)
+            board = Array.from({ length: size }, () => Array.from({ length: size }, () => ({
+                isMine: false, isRevealed: false, isFlagged: false, nearbyMines: 0
+            })));
+
+            // 地雷配置
+            let placed = 0;
+            while (placed < mines) {
+                let r = Math.floor(Math.random() * size), c = Math.floor(Math.random() * size);
+                if (!board[r][c].isMine) { board[r][c].isMine = true; placed++; }
+            }
+
+            // 数字計算
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (board[r][c].isMine) continue;
+                    let count = 0;
+                    for (let i = r-1; i <= r+1; i++) {
+                        for (let j = c-1; j <= c+1; j++) {
+                            if (i>=0 && i<size && j>=0 && j<size && board[i][j].isMine) count++;
+                        }
+                    }
+                    board[r][c].nearbyMines = count;
+                }
+            }
+
+            // 描画
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'cell';
+                    cellDiv.id = `cell-${r}-${c}`;
+                    cellDiv.onclick = () => openCell(r, c);
+                    cellDiv.oncontextmenu = (e) => { e.preventDefault(); toggleFlag(r, c); };
+                    boardElement.appendChild(cellDiv);
+                }
+            }
+        }
+
+        function openCell(r, c) {
+            if (gameOver || board[r][c].isRevealed || board[r][c].isFlagged) return;
+            let cell = board[r][c];
+            cell.isRevealed = true;
+            const el = document.getElementById(`cell-${r}-${c}`);
+            el.classList.add('revealed');
+
+            if (cell.isMine) {
+                gameOver = true;
+                revealAllMines();
+                alert("Game Over! 爆発しました。");
+                return;
+            }
+
+            if (cell.nearbyMines > 0) {
+                el.innerText = cell.nearbyMines;
+                setNumberColor(el, cell.nearbyMines);
+            } else {
+                for (let i = r-1; i <= r+1; i++) {
+                    for (let j = c-1; j <= c+1; j++) {
+                        if (i>=0 && i<size && j>=0 && j<size) openCell(i, j);
+                    }
+                }
+            }
+            checkWin();
+        }
+
+        function toggleFlag(r, c) {
+            if (gameOver || board[r][c].isRevealed) return;
+            board[r][c].isFlagged = !board[r][c].isFlagged;
+            document.getElementById(`cell-${r}-${c}`).innerText = board[r][c].isFlagged ? "🚩" : "";
+        }
+
+        function setNumberColor(el, num) {
+            const colors = { 1: "#00ffff", 2: "#39ff14", 3: "#ff1493", 4: "#bf00ff" };
+            el.style.color = colors[num] || "white";
+        }
+
+        function revealAllMines() {
+            board.forEach((row, r) => row.forEach((cell, c) => {
+                if (cell.isMine) {
+                    const el = document.getElementById(`cell-${r}-${c}`);
+                    el.innerText = "💣";
+                    el.classList.add('mine');
+                }
+            }));
+        }
+
+        function checkWin() {
+            let revealedCount = board.flat().filter(c => c.isRevealed).length;
+            if (revealedCount === size * size - mines) {
+                gameOver = true;
+                alert("おめでとう! クリアだよ!");
+            }
+        }
+
+        startGame(9, 10); // 初回起動
+    </script>
+</body>
+</html>
